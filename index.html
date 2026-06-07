@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Daman - Permainan Tradisional Indonesia</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="game-header">
+            <h1>DAMAN</h1>
+            <p class="subtitle">Permainan Tradisional Indonesia</p>
+        </div>
+
+        <div class="game-info">
+            <div class="player-info">
+                <div class="player player-1">
+                    <span class="player-label">Pemain 1</span>
+                    <span class="player-pieces" id="player1-pieces">10</span>
+                </div>
+                <div class="turn-indicator" id="turn-indicator">Giliran: Pemain 1
+                    <div id="ai-timer" class="ai-timer hidden">
+                        <div class="ai-timer-bar" id="ai-timer-bar"></div>
+                        <div class="ai-timer-text" id="ai-timer-text">0.0s</div>
+                    </div>
+                </div>
+                <div class="player player-2">
+                    <span class="player-label">Pemain 2</span>
+                    <span class="player-pieces" id="player2-pieces">10</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+
+        <div class="game-controls">
+            <button id="restart-btn" class="btn btn-primary">Restart Game</button>
+            <button id="undo-btn" class="btn btn-secondary">Undo Langkah</button>
+            <button id="sound-toggle" class="btn btn-secondary">🔊 Sound: ON</button>
+            <button id="forced-toggle" class="btn btn-secondary">Wajib Makan: OFF</button>
+        </div>
+
+        <div class="game-rules">
+            <details>
+                <summary>📋 Aturan Permainan</summary>
+                <ul>
+                    <li>Setiap pemain memiliki 10 pion</li>
+                    <li>Pion dapat bergerak ke titik yang terhubung dengan garis</li>
+                    <li>Jika ada pion lawan yang dapat dilompati dan titik setelahnya kosong, pion lawan dimakan</li>
+                    <li>Jika ada langkah makan yang tersedia, pemain wajib makan</li>
+                    <li>Multi-capture (makan berantai) didukung</li>
+                    <li>Pemain menang jika semua pion lawan habis</li>
+                </ul>
+            </details>
+        </div>
+    </div>
+
+    <!-- Popup Kemenangan -->
+    <div id="winner-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="winner-text">Pemain 1 Menang!</h2>
+            <p id="winner-message">Selamat! Anda telah memenangkan permainan.</p>
+            <button id="modal-restart-btn" class="btn btn-primary">Permainan Baru</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
