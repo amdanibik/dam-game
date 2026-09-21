@@ -39,10 +39,11 @@ const COLORS = {
 // CLASS PIECE - Merepresentasikan Satu Pion
 // ============================================
 class Piece {
-    constructor(player, row, col) {
+    constructor(player, row, col, index = 0) {
         this.player = player; // 1 atau 2
         this.row = row;
         this.col = col;
+        this.index = index;
         this.captured = false;
     }
 
@@ -50,7 +51,7 @@ class Piece {
      * Clone piece untuk keperluan immutability
      */
     clone() {
-        const newPiece = new Piece(this.player, this.row, this.col);
+        const newPiece = new Piece(this.player, this.row, this.col, this.index);
         newPiece.captured = this.captured;
         return newPiece;
     }
@@ -72,17 +73,19 @@ class Board {
      */
     initializeBoard() {
         this.pieces = [];
+        let p1Idx = 0;
+        let p2Idx = 0;
         // Player 1: Baris 0-1 (10 pion) - isi semua kolom pada dua baris teratas
         for (let row = 0; row < 2; row++) {
             for (let col = 0; col < BOARD_SIZE; col++) {
-                this.pieces.push(new Piece(PLAYERS.PLAYER1, row, col));
+                this.pieces.push(new Piece(PLAYERS.PLAYER1, row, col, p1Idx++));
             }
         }
 
         // Player 2: Baris 3-4 (10 pion) - isi semua kolom pada dua baris terbawah
         for (let row = 3; row < BOARD_SIZE; row++) {
             for (let col = 0; col < BOARD_SIZE; col++) {
-                this.pieces.push(new Piece(PLAYERS.PLAYER2, row, col));
+                this.pieces.push(new Piece(PLAYERS.PLAYER2, row, col, p2Idx++));
             }
         }
     }
@@ -806,6 +809,13 @@ class Game {
 // ============================================
 // CLASS CANVAS RENDERER
 // ============================================
+
+const CHARACTER_SETS = {
+    naruto: Array.from({ length: 10 }, (_, i) => `https://api.dicebear.com/7.x/avataaars/svg?seed=Naruto${i + 1}`),
+    kamen_rider: Array.from({ length: 10 }, (_, i) => `https://api.dicebear.com/7.x/bottts/svg?seed=Rider${i + 1}`)
+};
+const imageAssets = { naruto: [], kamen_rider: [] };
+
 class CanvasRenderer {
     constructor(canvas, game) {
         this.canvas = canvas;
@@ -819,6 +829,19 @@ class CanvasRenderer {
         // Responsive canvas
         this.updateCanvasSize();
         window.addEventListener('resize', () => this.updateCanvasSize());
+
+        this.preloadSets();
+    }
+
+    preloadSets() {
+        for (const [setName, urls] of Object.entries(CHARACTER_SETS)) {
+            for (let i = 0; i < urls.length; i++) {
+                const img = new Image();
+                img.src = urls[i];
+                img.onload = () => { if (window.renderer) window.renderer.render(); };
+                imageAssets[setName].push(img);
+            }
+        }
     }
 
     /**
@@ -1025,22 +1048,38 @@ class CanvasRenderer {
         this.ctx.arc(x + 3, y + 4, radius, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // Custom character (Emoji)
-        let char = piece.player === PLAYERS.PLAYER1
+        // Custom character Sets
+        let charSet = piece.player === PLAYERS.PLAYER1
             ? document.getElementById('char-p1').value
             : document.getElementById('char-p2').value;
 
-        if (char && char !== 'default') {
-            this.ctx.font = `${Math.floor(radius * 1.6)}px Arial`;
-            this.ctx.textAlign = 'center';
-            this.ctx.textBaseline = 'middle';
-            this.ctx.shadowColor = 'rgba(0,0,0,0.5)';
-            this.ctx.shadowBlur = 4;
-            this.ctx.shadowOffsetX = 2;
-            this.ctx.shadowOffsetY = 2;
-            this.ctx.fillText(char, x, y);
-            this.ctx.shadowColor = 'transparent';
-            return;
+        if (charSet && charSet !== 'default' && imageAssets[charSet]) {
+            const img = imageAssets[charSet][piece.index];
+            if (img && img.complete && img.naturalWidth !== 0) {
+                this.ctx.save();
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+                this.ctx.clip();
+                this.ctx.fillStyle = piece.player === PLAYERS.PLAYER1 ? 'rgba(169, 169, 169, 0.4)' : 'rgba(165, 42, 42, 0.4)';
+                this.ctx.fill();
+                this.ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
+                this.ctx.restore();
+
+                this.ctx.strokeStyle = COLORS.PIECE_OUTLINE;
+                this.ctx.lineWidth = 1.5;
+                this.ctx.stroke();
+
+                // Draw Highlight selection reflex if not selected, or draw selected ring
+                if (this.game.selectedPiece && this.game.selectedPiece.row === piece.row && this.game.selectedPiece.col === piece.col) {
+                    this.drawSelectedHighlight();
+                } else {
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                    this.ctx.beginPath();
+                    this.ctx.arc(x - radius * 0.3, y - radius * 0.3, radius * 0.25, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+                return;
+            }
         }
 
         // --- Default Visuals ---
