@@ -170,8 +170,8 @@ class Game {
         const validMoves = [];
         const directions = [
             [-1, -1], [-1, 0], [-1, 1],
-            [0, -1],           [0, 1],
-            [1, -1],  [1, 0],  [1, 1]
+            [0, -1], [0, 1],
+            [1, -1], [1, 0], [1, 1]
         ];
 
         for (let [dRow, dCol] of directions) {
@@ -202,8 +202,8 @@ class Game {
         const captureMoves = [];
         const directions = [
             [-1, -1], [-1, 0], [-1, 1],
-            [0, -1],           [0, 1],
-            [1, -1],  [1, 0],  [1, 1]
+            [0, -1], [0, 1],
+            [1, -1], [1, 0], [1, 1]
         ];
 
         for (let [dRow, dCol] of directions) {
@@ -653,7 +653,7 @@ class Game {
             if (container) container.classList.add('hidden');
             if (bar) bar.style.transform = 'scaleX(0)';
             if (text) text.textContent = '';
-        } catch (e) {}
+        } catch (e) { }
     }
 
     /**
@@ -828,7 +828,7 @@ class CanvasRenderer {
         const container = this.canvas.parentElement;
         const maxWidth = container.clientWidth - 10;
         const scale = Math.min(1, maxWidth / CANVAS_SIZE);
-        
+
         this.canvas.style.width = (CANVAS_SIZE * scale) + 'px';
         this.canvas.style.height = (CANVAS_SIZE * scale) + 'px';
     }
@@ -1025,7 +1025,25 @@ class CanvasRenderer {
         this.ctx.arc(x + 3, y + 4, radius, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // Main piece color
+        // Custom character (Emoji)
+        let char = piece.player === PLAYERS.PLAYER1
+            ? document.getElementById('char-p1').value
+            : document.getElementById('char-p2').value;
+
+        if (char && char !== 'default') {
+            this.ctx.font = `${Math.floor(radius * 1.6)}px Arial`;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            this.ctx.shadowBlur = 4;
+            this.ctx.shadowOffsetX = 2;
+            this.ctx.shadowOffsetY = 2;
+            this.ctx.fillText(char, x, y);
+            this.ctx.shadowColor = 'transparent';
+            return;
+        }
+
+        // --- Default Visuals ---
         if (piece.player === PLAYERS.PLAYER1) {
             this.ctx.fillStyle = COLORS.PIECE_P1;
             this.ctx.shadowColor = COLORS.PIECE_P1_SHADOW;
@@ -1083,7 +1101,7 @@ class CanvasRenderer {
         // Check jika click di area titik
         const distToCenter = Math.sqrt(Math.pow(cellX - midX, 2) + Math.pow(cellY - midY, 2));
 
-        if (distToCenter <= tolerance || 
+        if (distToCenter <= tolerance ||
             (cellX > CELL_SIZE * 0.3 && cellX < CELL_SIZE * 0.7 && cellY > CELL_SIZE * 0.3 && cellY < CELL_SIZE * 0.7)) {
             return { row, col, valid: true };
         }
@@ -1124,6 +1142,24 @@ window.addEventListener('DOMContentLoaded', () => {
         const btn = document.getElementById('forced-toggle');
         btn.textContent = `Wajib Makan: ${game.forcedCapture ? 'ON' : 'OFF'}`;
     });
+
+    // Game Mode & Characters
+    const modeSelect = document.getElementById('game-mode');
+    if (modeSelect) {
+        modeSelect.addEventListener('change', (e) => {
+            game.aiEnabled = e.target.value === 'vs_ai';
+            if (game.aiEnabled && game.currentPlayer === PLAYERS.PLAYER2 && !game.gameOver) {
+                setTimeout(() => game.aiMove(), 250);
+            }
+            updateUI();
+        });
+        game.aiEnabled = modeSelect.value === 'vs_ai';
+    }
+
+    const charP1 = document.getElementById('char-p1');
+    const charP2 = document.getElementById('char-p2');
+    if (charP1) charP1.addEventListener('change', () => renderer.render());
+    if (charP2) charP2.addEventListener('change', () => renderer.render());
 });
 
 /**
@@ -1204,13 +1240,13 @@ function updateUI() {
     const turnText = game.currentPlayer === PLAYERS.PLAYER1 ? 'Pemain 1' : (game.aiEnabled ? 'Pemain 2 (Komputer)' : 'Pemain 2');
     const thinking = game.aiThinking && game.currentPlayer === PLAYERS.PLAYER2 ? ' — berpikir...' : '';
     document.getElementById('turn-indicator').textContent = `Giliran: ${turnText}${thinking}`;
-    
-    document.getElementById('player1-pieces').textContent = 
+
+    document.getElementById('player1-pieces').textContent =
         game.board.getPieceCount(PLAYERS.PLAYER1);
-    
-    document.getElementById('player2-pieces').textContent = 
+
+    document.getElementById('player2-pieces').textContent =
         game.board.getPieceCount(PLAYERS.PLAYER2);
-    
+
     const undoButton = document.getElementById('undo-btn');
     if (undoButton) {
         undoButton.disabled = game.history.length === 0 || game.aiThinking;
@@ -1229,12 +1265,19 @@ function showWinnerIfExists() {
         const winnerMessage = document.getElementById('winner-message');
 
         winnerText.textContent = `Pemain ${winner === PLAYERS.PLAYER1 ? '1' : '2'} Menang! 🎉`;
-        winnerMessage.textContent = winner === PLAYERS.PLAYER1 
+        winnerMessage.textContent = winner === PLAYERS.PLAYER1
             ? 'Pemain 1 (Abu-abu) telah memenangkan permainan. Selamat!'
             : 'Pemain 2 (Coklat) telah memenangkan permainan. Selamat!';
 
         modal.classList.remove('hidden');
         game.playSound('capture');
+
+        // Save result to Firebase if available
+        if (window.saveGameResult) {
+            const movesTaken = game.history.length;
+            const mode = document.getElementById('game-mode') ? document.getElementById('game-mode').value : 'vs_ai';
+            window.saveGameResult(winner, movesTaken, mode);
+        }
     }
 }
 

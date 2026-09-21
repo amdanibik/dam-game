@@ -1,16 +1,66 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Game Daman - Permainan Tradisional Indonesia</title>
     <link rel="stylesheet" href="style.css">
+
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
+
 <body>
     <div class="container">
         <div class="game-header">
-            <h1>DAMAN</h1>
-            <p class="subtitle">Permainan Tradisional Indonesia</p>
+            <div class="header-title">
+                <h1>DAMAN</h1>
+                <p class="subtitle">Permainan Tradisional Indonesia</p>
+            </div>
+            <div class="auth-container">
+                <button id="leaderboard-btn" class="btn btn-outline" style="border-color: #6B8E23; color: #6B8E23;">🏆
+                    Ranking Global</button>
+                <button id="login-btn" class="btn btn-outline">Login Google</button>
+                <div id="user-profile" class="user-profile hidden">
+                    <img id="user-avatar" src="" alt="Avatar" class="avatar">
+                    <span id="user-name">Nama User</span>
+                    <button id="logout-btn" class="btn btn-text">Logout</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-settings"
+            style="margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; color: #fff;">
+            <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+                <div>
+                    <label style="font-weight: bold; margin-bottom: 3px; display: block;">Mode Game:</label>
+                    <select id="game-mode" style="padding: 5px; border-radius: 5px; border: none; cursor: pointer;">
+                        <option value="vs_ai">👤 Lawan Komputer</option>
+                        <option value="vs_player">👥 Lawan Teman (Lokal)</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-weight: bold; margin-bottom: 3px; display: block;">Bidak P1:</label>
+                    <select id="char-p1" style="padding: 5px; border-radius: 5px; border: none; cursor: pointer;">
+                        <option value="default">⚪ Biasa (P1)</option>
+                        <option value="⚽">⚽ Bola</option>
+                        <option value="😼">😼 Kucing</option>
+                        <option value="🏹">🏹 Pemanah</option>
+                        <option value="🦸">🦸 Pahlawan</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-weight: bold; margin-bottom: 3px; display: block;">Bidak P2:</label>
+                    <select id="char-p2" style="padding: 5px; border-radius: 5px; border: none; cursor: pointer;">
+                        <option value="default">🟤 Biasa (P2)</option>
+                        <option value="🍎">🍎 Apel</option>
+                        <option value="🐶">🐶 Anjing</option>
+                        <option value="🧛">🧛 Vampir</option>
+                        <option value="🦹">🦹 Musuh</option>
+                    </select>
+                </div>
+            </div>
         </div>
 
         <div class="game-info">
@@ -67,6 +117,102 @@
         </div>
     </div>
 
+    <!-- Popup Leaderboard -->
+    <div id="leaderboard-modal" class="modal hidden">
+        <div class="modal-content"
+            style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); border-color: #4CAF50; color: white;">
+            <h2>🏆 Global Ranking</h2>
+            <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
+                <button id="btn-rank-wins" class="btn btn-secondary">Paling Banyak Menang</button>
+                <button id="btn-rank-moves" class="btn btn-secondary">Menang Langkah Tersedikit</button>
+            </div>
+            <div id="leaderboard-list"
+                style="text-align: left; max-height: 300px; overflow-y: auto; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+                <p>Memuat data...</p>
+            </div>
+            <button id="close-leaderboard-btn" class="btn btn-primary">Tutup</button>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script>
+        // Set up saveGameResult to use Vercel Serverless Function
+        window.saveGameResult = async (winnerId, movesTaken, mode) => {
+            if (!window.currentUser) return;
+            if (winnerId !== 1) return; // Only Player 1 wins counted
+
+            try {
+                const res = await fetch('/api/save-score', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        uid: window.currentUser.uid,
+                        name: window.currentUser.name,
+                        picture: window.currentUser.picture,
+                        moves: movesTaken,
+                        mode: mode
+                    })
+                });
+                if (!res.ok) console.warn("Gagal menyimpan skor", res.status);
+                else console.log("Skor disimpan!");
+            } catch (err) {
+                console.error("Error saving score", err);
+            }
+        };
+
+        // Leaderboard Logic
+        async function showLeaderboard(type) {
+            const listEl = document.getElementById('leaderboard-list');
+            listEl.innerHTML = "<p>Memuat data...</p>";
+            try {
+                const res = await fetch(`/api/leaderboard?type=${type}`);
+                const json = await res.json();
+
+                if (!res.ok || !json.data || json.data.length === 0) {
+                    listEl.innerHTML = "<p>Belum ada data prestasi.</p>";
+                    return;
+                }
+
+                let html = '<table style="width:100%; color: white; border-collapse: collapse; font-size: 14px;">';
+                html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.5);"><th style="padding:8px;text-align:left;">Pemain</th><th style="padding:8px;">Menang</th><th style="padding:8px;">Langkah</th></tr>';
+
+                json.data.forEach(d => {
+                    html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.2);">
+                        <td style="padding: 8px; display:flex; align-items:center; gap: 10px;">
+                            <img src="${d.picture || 'https://via.placeholder.com/24'}" style="width:24px; height:24px; border-radius:50%; border: 1px solid #FFD700;">
+                            <span style="font-weight:bold;">${d.name}</span>
+                        </td>
+                        <td style="padding: 8px; text-align:center; color: #FFD700;">${d.wins}</td>
+                        <td style="padding: 8px; text-align:center; color: #4CAF50;">${d.bestMoves || '-'}</td>
+                    </tr>`;
+                });
+                html += '</table>';
+                listEl.innerHTML = html;
+            } catch (e) {
+                console.error(e);
+                listEl.innerHTML = "<p style='color:red;'>Gagal memuat dari API Vercel.</p>";
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const lbBtn = document.getElementById('leaderboard-btn');
+            const lbModal = document.getElementById('leaderboard-modal');
+            const closeLbBtn = document.getElementById('close-leaderboard-btn');
+
+            if (lbBtn) lbBtn.addEventListener('click', () => {
+                lbModal.classList.remove('hidden');
+                showLeaderboard('wins');
+            });
+
+            if (closeLbBtn) closeLbBtn.addEventListener('click', () => {
+                lbModal.classList.add('hidden');
+            });
+
+            document.getElementById('btn-rank-wins').addEventListener('click', () => showLeaderboard('wins'));
+            document.getElementById('btn-rank-moves').addEventListener('click', () => showLeaderboard('moves'));
+        });
+    </script>
     <script src="game.js"></script>
 </body>
+
 </html>
