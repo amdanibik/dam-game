@@ -8,101 +8,177 @@
 </head>
 <body>
     <div class="container">
-        <div class="game-header">
-            <h1>DAMAN</h1>
-            <p class="subtitle">Permainan Tradisional Indonesia</p>
+        <!-- SCREEN 1: LAYAR SETUP / PENGATURAN AWAL -->
+        <div id="setup-screen" class="screen-view">
+            <div class="game-header">
+                <h1>DAMAN</h1>
+                <p class="subtitle">Permainan Tradisional Indonesia</p>
+            </div>
+
+            <div class="setup-card">
+                <h2 class="setup-title">⚙️ Pengaturan Permainan</h2>
+                <div class="settings-grid">
+                    <div class="settings-item">
+                        <label for="game-mode">Mode Permainan:</label>
+                        <select id="game-mode">
+                            <option value="vs_ai" selected>👤 Lawan Komputer (AI)</option>
+                            <option value="vs_player">👥 Lawan Teman (2 Pemain)</option>
+                        </select>
+                    </div>
+
+                    <div class="settings-item" id="difficulty-select-container">
+                        <label for="ai-difficulty">Tingkat Kesulitan AI:</label>
+                        <select id="ai-difficulty">
+                            <option value="easy">🟢 Mudah (Santai)</option>
+                            <option value="medium" selected>🟡 Sedang (Standar)</option>
+                            <option value="hard">🔴 Sulit (Tantangan)</option>
+                        </select>
+                    </div>
+
+                    <div class="settings-item" id="side-select-container">
+                        <label for="human-side">Bidak Anda (Lawan AI):</label>
+                        <select id="human-side">
+                            <option value="1" selected>⚪ Pemain 1 (Atas - Jalan Pertama)</option>
+                            <option value="2">🟤 Pemain 2 (Bawah - Jalan Kedua)</option>
+                        </select>
+                    </div>
+
+                    <div class="settings-item">
+                        <label for="color-theme">Tema Warna Bidak:</label>
+                        <select id="color-theme">
+                            <option value="classic" selected>⚪ Klasik (Abu & Coklat)</option>
+                            <option value="monochrome">♟️ Monokrom (Putih & Hitam)</option>
+                            <option value="red_blue">🔵 Biru & Merah 🔴</option>
+                            <option value="gold_emerald">🟡 Emas & Zamrud 🟢</option>
+                            <option value="neon">⚡ Neon Cyberpunk</option>
+                            <option value="custom">🎨 Kustom Sendiri...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="custom-colors-container" class="custom-colors-row" style="display: none;">
+                    <div class="color-picker-group">
+                        <label for="p1-color-picker">Warna Bidak 1 (Atas):</label>
+                        <input type="color" id="p1-color-picker" value="#d3d3d3">
+                    </div>
+                    <div class="color-picker-group">
+                        <label for="p2-color-picker">Warna Bidak 2 (Bawah):</label>
+                        <input type="color" id="p2-color-picker" value="#a52a2a">
+                    </div>
+                </div>
+
+                <!-- Preview Bidak & Ringkasan Peran -->
+                <div class="setup-preview-card">
+                    <div class="preview-player" id="preview-p1-card">
+                        <span class="preview-badge" id="preview-p1-badge"></span>
+                        <div class="preview-info">
+                            <span class="preview-name" id="preview-p1-name">Pemain 1 (Anda)</span>
+                            <span class="preview-desc" id="preview-p1-desc">Posisi Atas • Jalan Pertama</span>
+                        </div>
+                    </div>
+                    <div class="preview-vs">VS</div>
+                    <div class="preview-player" id="preview-p2-card">
+                        <span class="preview-badge" id="preview-p2-badge"></span>
+                        <div class="preview-info">
+                            <span class="preview-name" id="preview-p2-name">Pemain 2 (AI: Sedang)</span>
+                            <span class="preview-desc" id="preview-p2-desc">Posisi Bawah • Komputer</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setup-actions">
+                    <button id="start-game-btn" class="btn btn-primary btn-start">🎮 Mulai Permainan</button>
+                </div>
+            </div>
+
+            <div class="game-rules">
+                <details>
+                    <summary>📋 Aturan Permainan</summary>
+                    <ul>
+                        <li>Setiap pemain memiliki 10 pion</li>
+                        <li>Pion dapat bergerak ke titik yang terhubung dengan garis</li>
+                        <li>Jika ada pion lawan yang dapat dilompati dan titik setelahnya kosong, pion lawan dimakan</li>
+                        <li>Jika ada langkah makan yang tersedia, pemain wajib makan (jika fitur aktif)</li>
+                        <li>Multi-capture (makan berantai) didukung</li>
+                        <li>Pemain menang jika semua pion lawan habis</li>
+                    </ul>
+                </details>
+            </div>
         </div>
 
-        <div class="game-info">
-            <div class="player-info">
-                <div class="player player-1">
-                    <span class="player-label">Pemain 1</span>
-                    <span class="player-pieces" id="player1-pieces">10</span>
+        <!-- SCREEN 2: LAYAR PERMAINAN (GAME SCREEN) -->
+        <div id="game-screen" class="screen-view hidden">
+            <div class="game-header-compact">
+                <h2>DAMAN</h2>
+                <div id="global-turn-pill" class="turn-pill">Giliran: Pemain 1</div>
+            </div>
+
+            <!-- BAR INFO PEMAIN 1 (TEPAT DI ATAS PAPAN) -->
+            <div class="player-bar player-bar-top player player-1" id="player1-bar">
+                <div class="player-bar-left">
+                    <span class="player-color-dot" id="p1-color-dot"></span>
+                    <div class="player-meta">
+                        <span class="player-label" id="p1-name-display">Pemain 1</span>
+                        <span class="player-status-badge" id="p1-status-badge">👉 Giliran Jalan</span>
+                    </div>
                 </div>
-                <div class="turn-indicator" id="turn-indicator">Giliran: Pemain 1
+                <div class="player-bar-center" id="p1-center-slot">
                     <div id="ai-timer" class="ai-timer hidden">
                         <div class="ai-timer-bar" id="ai-timer-bar"></div>
                         <div class="ai-timer-text" id="ai-timer-text">0.0s</div>
                     </div>
                 </div>
-                <div class="player player-2">
-                    <span class="player-label">Pemain 2</span>
-                    <span class="player-pieces" id="player2-pieces">10</span>
+                <div class="player-bar-right">
+                    <div class="pieces-badge">
+                        <span class="player-pieces" id="player1-pieces">10</span>
+                        <span class="pieces-label">Bidak</span>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="game-settings">
-            <div class="settings-grid">
-                <div class="settings-item">
-                    <label for="game-mode">Mode Permainan:</label>
-                    <select id="game-mode">
-                        <option value="vs_ai">👤 Lawan Komputer (AI)</option>
-                        <option value="vs_player">👥 Lawan Teman (2 Pemain)</option>
-                    </select>
+            <!-- PAPAN CANVAS DI TENGAH -->
+            <div class="canvas-container">
+                <canvas id="gameCanvas"></canvas>
+            </div>
+
+            <!-- BAR INFO PEMAIN 2 (TEPAT DI BAWAH PAPAN) -->
+            <div class="player-bar player-bar-bottom player player-2" id="player2-bar">
+                <div class="player-bar-left">
+                    <span class="player-color-dot" id="p2-color-dot"></span>
+                    <div class="player-meta">
+                        <span class="player-label" id="p2-name-display">Pemain 2</span>
+                        <span class="player-status-badge" id="p2-status-badge">Menunggu</span>
+                    </div>
                 </div>
-                <div class="settings-item" id="difficulty-select-container">
-                    <label for="ai-difficulty">Tingkat Kesulitan AI:</label>
-                    <select id="ai-difficulty">
-                        <option value="easy">🟢 Mudah (Santai)</option>
-                        <option value="medium" selected>🟡 Sedang (Standar)</option>
-                        <option value="hard">🔴 Sulit (Tantangan)</option>
-                    </select>
-                </div>
-                <div class="settings-item" id="side-select-container">
-                    <label for="human-side">Bidak Anda (Lawan AI):</label>
-                    <select id="human-side">
-                        <option value="1">⚪ Pemain 1 (Jalan Pertama)</option>
-                        <option value="2">🟤 Pemain 2 (Jalan Kedua)</option>
-                    </select>
-                </div>
-                <div class="settings-item">
-                    <label for="color-theme">Tema Warna Bidak:</label>
-                    <select id="color-theme">
-                        <option value="classic">⚪ Klasik (Abu & Coklat)</option>
-                        <option value="monochrome">♟️ Monokrom (Putih & Hitam)</option>
-                        <option value="red_blue">🔵 Biru & Merah 🔴</option>
-                        <option value="gold_emerald">🟡 Emas & Zamrud 🟢</option>
-                        <option value="neon">⚡ Neon Cyberpunk</option>
-                        <option value="custom">🎨 Kustom Sendiri...</option>
-                    </select>
+                <div class="player-bar-center" id="p2-center-slot"></div>
+                <div class="player-bar-right">
+                    <div class="pieces-badge">
+                        <span class="player-pieces" id="player2-pieces">10</span>
+                        <span class="pieces-label">Bidak</span>
+                    </div>
                 </div>
             </div>
-            <div id="custom-colors-container" class="custom-colors-row" style="display: none;">
-                <div class="color-picker-group">
-                    <label for="p1-color-picker">Warna Bidak 1:</label>
-                    <input type="color" id="p1-color-picker" value="#d3d3d3">
-                </div>
-                <div class="color-picker-group">
-                    <label for="p2-color-picker">Warna Bidak 2:</label>
-                    <input type="color" id="p2-color-picker" value="#a52a2a">
-                </div>
+
+            <!-- KONTROL GAME -->
+            <div class="game-controls">
+                <button id="restart-btn" class="btn btn-primary">🔄 Restart</button>
+                <button id="undo-btn" class="btn btn-secondary">↩️ Undo</button>
+                <button id="sound-toggle" class="btn btn-secondary">🔊 Sound: ON</button>
+                <button id="forced-toggle" class="btn btn-secondary">⚔️ Wajib: OFF</button>
+                <button id="back-to-setup-btn" class="btn btn-settings">⚙️ Pengaturan</button>
             </div>
-        </div>
 
-        <div class="canvas-container">
-            <canvas id="gameCanvas"></canvas>
-        </div>
-
-        <div class="game-controls">
-            <button id="restart-btn" class="btn btn-primary">Restart Game</button>
-            <button id="undo-btn" class="btn btn-secondary">Undo Langkah</button>
-            <button id="sound-toggle" class="btn btn-secondary">🔊 Sound: ON</button>
-            <button id="forced-toggle" class="btn btn-secondary">Wajib Makan: OFF</button>
-        </div>
-
-        <div class="game-rules">
-            <details>
-                <summary>📋 Aturan Permainan</summary>
-                <ul>
-                    <li>Setiap pemain memiliki 10 pion</li>
-                    <li>Pion dapat bergerak ke titik yang terhubung dengan garis</li>
-                    <li>Jika ada pion lawan yang dapat dilompati dan titik setelahnya kosong, pion lawan dimakan</li>
-                    <li>Jika ada langkah makan yang tersedia, pemain wajib makan</li>
-                    <li>Multi-capture (makan berantai) didukung</li>
-                    <li>Pemain menang jika semua pion lawan habis</li>
-                </ul>
-            </details>
+            <div class="game-rules">
+                <details>
+                    <summary>📋 Aturan Singkat</summary>
+                    <ul>
+                        <li>Pemain 1 berada di 2 baris atas papan.</li>
+                        <li>Pemain 2 berada di 2 baris bawah papan.</li>
+                        <li>Pion dapat melompat dan memakan pion lawan jika titik setelahnya kosong.</li>
+                        <li>Sisa bidak terlihat langsung di atas/bawah papan sesuai posisi pemain.</li>
+                    </ul>
+                </details>
+            </div>
         </div>
     </div>
 
@@ -111,7 +187,10 @@
         <div class="modal-content">
             <h2 id="winner-text">Pemain 1 Menang!</h2>
             <p id="winner-message">Selamat! Anda telah memenangkan permainan.</p>
-            <button id="modal-restart-btn" class="btn btn-primary">Permainan Baru</button>
+            <div class="modal-actions">
+                <button id="modal-restart-btn" class="btn btn-primary">Main Lagi</button>
+                <button id="modal-setup-btn" class="btn btn-secondary">⚙️ Pengaturan</button>
+            </div>
         </div>
     </div>
 

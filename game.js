@@ -1230,10 +1230,89 @@ class CanvasRenderer {
 }
 
 // ============================================
-// MAIN GAME INITIALIZATION
+// MAIN GAME INITIALIZATION & SCREEN NAVIGATION
 // ============================================
 let game;
 let renderer;
+
+/**
+ * Update preview di layar setup sebelum mulai game
+ */
+function updateSetupPreview() {
+    const theme = (renderer && renderer.theme) ? renderer.theme : THEMES.classic;
+    const modeSelect = document.getElementById('game-mode');
+    const sideSelect = document.getElementById('human-side');
+    const diffSelect = document.getElementById('ai-difficulty');
+
+    const isAI = modeSelect ? modeSelect.value === 'vs_ai' : true;
+    const humanSide = sideSelect ? parseInt(sideSelect.value, 10) : 1;
+    const diff = diffSelect ? diffSelect.value : 'medium';
+    const diffMap = { easy: 'Mudah', medium: 'Sedang', hard: 'Sulit' };
+    const diffText = diffMap[diff] || 'Sedang';
+
+    const p1Badge = document.getElementById('preview-p1-badge');
+    const p2Badge = document.getElementById('preview-p2-badge');
+    const p1Name = document.getElementById('preview-p1-name');
+    const p2Name = document.getElementById('preview-p2-name');
+    const p1Desc = document.getElementById('preview-p1-desc');
+    const p2Desc = document.getElementById('preview-p2-desc');
+
+    if (p1Badge && theme.p1) {
+        p1Badge.style.background = `radial-gradient(circle at 35% 35%, #fff 0%, ${theme.p1} 50%, ${theme.p1Shadow || '#555'} 100%)`;
+    }
+    if (p2Badge && theme.p2) {
+        p2Badge.style.background = `radial-gradient(circle at 35% 35%, #fff 0%, ${theme.p2} 50%, ${theme.p2Shadow || '#333'} 100%)`;
+    }
+
+    if (isAI) {
+        if (humanSide === 1) {
+            if (p1Name) p1Name.textContent = 'Pemain 1 (Anda)';
+            if (p1Desc) p1Desc.textContent = 'Posisi Atas • Jalan Pertama';
+            if (p2Name) p2Name.textContent = `Pemain 2 (AI: ${diffText})`;
+            if (p2Desc) p2Desc.textContent = 'Posisi Bawah • Komputer';
+        } else {
+            if (p1Name) p1Name.textContent = `Pemain 1 (AI: ${diffText})`;
+            if (p1Desc) p1Desc.textContent = 'Posisi Atas • Komputer (Jalan Pertama)';
+            if (p2Name) p2Name.textContent = 'Pemain 2 (Anda)';
+            if (p2Desc) p2Desc.textContent = 'Posisi Bawah • Anda';
+        }
+    } else {
+        if (p1Name) p1Name.textContent = 'Pemain 1';
+        if (p1Desc) p1Desc.textContent = 'Posisi Atas • Jalan Pertama';
+        if (p2Name) p2Name.textContent = 'Pemain 2';
+        if (p2Desc) p2Desc.textContent = 'Posisi Bawah • Jalan Kedua';
+    }
+}
+
+/**
+ * Pindah ke Layar Permainan
+ */
+function showGameScreen() {
+    const setupScreen = document.getElementById('setup-screen');
+    const gameScreen = document.getElementById('game-screen');
+    if (setupScreen) setupScreen.classList.add('hidden');
+    if (gameScreen) gameScreen.classList.remove('hidden');
+
+    restartGame();
+    if (renderer) {
+        renderer.updateCanvasSize();
+        renderer.render();
+    }
+}
+
+/**
+ * Pindah kembali ke Layar Setup Pengaturan
+ */
+function showSetupScreen() {
+    if (game) game.stopAITimer();
+    const setupScreen = document.getElementById('setup-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const modal = document.getElementById('winner-modal');
+    if (modal) modal.classList.add('hidden');
+    if (gameScreen) gameScreen.classList.add('hidden');
+    if (setupScreen) setupScreen.classList.remove('hidden');
+    updateSetupPreview();
+}
 
 window.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('gameCanvas');
@@ -1259,7 +1338,7 @@ window.addEventListener('DOMContentLoaded', () => {
             if (diffContainer) {
                 diffContainer.style.display = game.aiEnabled ? 'flex' : 'none';
             }
-            restartGame();
+            updateSetupPreview();
         });
         game.aiEnabled = modeSelect.value === 'vs_ai';
     }
@@ -1269,7 +1348,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (diffSelect) {
         diffSelect.addEventListener('change', (e) => {
             game.aiDifficulty = e.target.value;
-            updateUI();
+            updateSetupPreview();
         });
         game.aiDifficulty = diffSelect.value || 'medium';
     }
@@ -1281,7 +1360,7 @@ window.addEventListener('DOMContentLoaded', () => {
             const side = parseInt(e.target.value, 10);
             game.humanPlayer = side;
             game.aiPlayer = side === PLAYERS.PLAYER1 ? PLAYERS.PLAYER2 : PLAYERS.PLAYER1;
-            restartGame();
+            updateSetupPreview();
         });
         if (sideSelect.value) {
             const side = parseInt(sideSelect.value, 10);
@@ -1308,7 +1387,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (customColorsContainer) customColorsContainer.style.display = 'none';
                 renderer.setTheme(themeKey);
             }
-            updateUI();
+            updateSetupPreview();
         });
         if (themeSelect.value && themeSelect.value !== 'classic') {
             renderer.setTheme(themeSelect.value);
@@ -1318,33 +1397,47 @@ window.addEventListener('DOMContentLoaded', () => {
     if (p1ColorInput && p2ColorInput) {
         const updateCustom = () => {
             renderer.setCustomTheme(p1ColorInput.value, p2ColorInput.value);
-            updateUI();
+            updateSetupPreview();
         };
         p1ColorInput.addEventListener('input', updateCustom);
         p2ColorInput.addEventListener('input', updateCustom);
     }
 
-    // Button events
-    document.getElementById('restart-btn').addEventListener('click', restartGame);
-    document.getElementById('modal-restart-btn').addEventListener('click', restartGame);
+    // Screen navigation buttons
+    const startBtn = document.getElementById('start-game-btn');
+    if (startBtn) startBtn.addEventListener('click', showGameScreen);
 
-    // Sound toggle
-    document.getElementById('sound-toggle').addEventListener('click', toggleSound);
-    // Undo button
-    document.getElementById('undo-btn').addEventListener('click', () => {
+    const backBtn = document.getElementById('back-to-setup-btn');
+    if (backBtn) backBtn.addEventListener('click', showSetupScreen);
+
+    const modalRestartBtn = document.getElementById('modal-restart-btn');
+    if (modalRestartBtn) modalRestartBtn.addEventListener('click', restartGame);
+
+    const modalSetupBtn = document.getElementById('modal-setup-btn');
+    if (modalSetupBtn) modalSetupBtn.addEventListener('click', showSetupScreen);
+
+    // In-game controls
+    const restartBtn = document.getElementById('restart-btn');
+    if (restartBtn) restartBtn.addEventListener('click', restartGame);
+
+    const soundToggle = document.getElementById('sound-toggle');
+    if (soundToggle) soundToggle.addEventListener('click', toggleSound);
+
+    const undoBtn = document.getElementById('undo-btn');
+    if (undoBtn) undoBtn.addEventListener('click', () => {
         game.undoMove();
         if (renderer) renderer.render();
         updateUI();
     });
-    document.getElementById('forced-toggle').addEventListener('click', () => {
+
+    const forcedToggle = document.getElementById('forced-toggle');
+    if (forcedToggle) forcedToggle.addEventListener('click', () => {
         game.forcedCapture = !game.forcedCapture;
-        const btn = document.getElementById('forced-toggle');
-        btn.textContent = `Wajib Makan: ${game.forcedCapture ? 'ON' : 'OFF'}`;
+        forcedToggle.textContent = `⚔️ Wajib: ${game.forcedCapture ? 'ON' : 'OFF'}`;
     });
 
-    // Initial render & UI
-    renderer.render();
-    updateUI();
+    // Initial setup preview rendering
+    updateSetupPreview();
 
     // Start game loop safely inside DOMContentLoaded
     gameLoop();
@@ -1412,8 +1505,9 @@ function handleCanvasClick(event) {
 function restartGame() {
     game.stopAITimer();
     game.restart();
-    document.getElementById('winner-modal').classList.add('hidden');
-    renderer.render();
+    const modal = document.getElementById('winner-modal');
+    if (modal) modal.classList.add('hidden');
+    if (renderer) renderer.render();
     updateUI();
 }
 
@@ -1423,11 +1517,11 @@ function restartGame() {
 function toggleSound() {
     game.soundEnabled = !game.soundEnabled;
     const btn = document.getElementById('sound-toggle');
-    btn.textContent = game.soundEnabled ? '🔊 Sound: ON' : '🔇 Sound: OFF';
+    if (btn) btn.textContent = game.soundEnabled ? '🔊 Sound: ON' : '🔇 Sound: OFF';
 }
 
 /**
- * Update UI (turn indicator, piece count)
+ * Update UI (turn indicator, piece counts above and below the canvas, active glowing bar)
  */
 function updateUI() {
     if (!game) return;
@@ -1441,57 +1535,107 @@ function updateUI() {
     };
     const diffText = diffMap[game.aiDifficulty] || 'Sedang';
 
-    let p1Label = 'Pemain 1';
-    let p2Label = 'Pemain 2';
+    let p1Name = 'Pemain 1';
+    let p2Name = 'Pemain 2';
 
     if (game.aiEnabled) {
         if (game.humanPlayer === PLAYERS.PLAYER1) {
-            p1Label = 'Pemain 1 (Anda)';
-            p2Label = `Pemain 2 (AI: ${diffText})`;
+            p1Name = 'Pemain 1 (Anda)';
+            p2Name = `Pemain 2 (AI: ${diffText})`;
         } else {
-            p1Label = `Pemain 1 (AI: ${diffText})`;
-            p2Label = 'Pemain 2 (Anda)';
+            p1Name = `Pemain 1 (AI: ${diffText})`;
+            p2Name = 'Pemain 2 (Anda)';
         }
     } else {
-        p1Label = 'Pemain 1';
-        p2Label = 'Pemain 2';
+        p1Name = 'Pemain 1';
+        p2Name = 'Pemain 2';
     }
 
-    const p1El = document.querySelector('.player-1 .player-label');
-    const p2El = document.querySelector('.player-2 .player-label');
-    if (p1El) p1El.textContent = p1Label;
-    if (p2El) p2El.textContent = p2Label;
+    const p1NameEl = document.getElementById('p1-name-display');
+    const p2NameEl = document.getElementById('p2-name-display');
+    if (p1NameEl) p1NameEl.textContent = p1Name;
+    if (p2NameEl) p2NameEl.textContent = p2Name;
 
-    // Highlight border box pemain sesuai warna tema
-    const p1Box = document.querySelector('.player.player-1');
-    const p2Box = document.querySelector('.player.player-2');
-    if (p1Box && theme.p1) p1Box.style.borderColor = theme.p1;
-    if (p2Box && theme.p2) p2Box.style.borderColor = theme.p2;
-
-    let turnText = '';
-    if (game.aiEnabled) {
-        turnText = game.currentPlayer === game.humanPlayer ? 'Anda' : 'Komputer';
-    } else {
-        turnText = game.currentPlayer === PLAYERS.PLAYER1 ? 'Pemain 1' : 'Pemain 2';
+    // Piece avatars / color dots
+    const p1Dot = document.getElementById('p1-color-dot');
+    const p2Dot = document.getElementById('p2-color-dot');
+    if (p1Dot && theme.p1) {
+        p1Dot.style.background = `radial-gradient(circle at 35% 35%, #fff 0%, ${theme.p1} 50%, ${theme.p1Shadow || '#555'} 100%)`;
+    }
+    if (p2Dot && theme.p2) {
+        p2Dot.style.background = `radial-gradient(circle at 35% 35%, #fff 0%, ${theme.p2} 50%, ${theme.p2Shadow || '#333'} 100%)`;
     }
 
-    const thinking = game.aiThinking && game.currentPlayer === game.aiPlayer ? ' — berpikir...' : '';
-    const turnIndicator = document.getElementById('turn-indicator');
-    if (turnIndicator) {
-        turnIndicator.textContent = `Giliran: ${turnText}${thinking}`;
-    }
-
+    // Piece counts: Pemain 1 di atas, Pemain 2 di bawah
     const p1Pieces = document.getElementById('player1-pieces');
     if (p1Pieces && game.board) p1Pieces.textContent = game.board.getPieceCount(PLAYERS.PLAYER1);
 
     const p2Pieces = document.getElementById('player2-pieces');
     if (p2Pieces && game.board) p2Pieces.textContent = game.board.getPieceCount(PLAYERS.PLAYER2);
 
+    // Active Turn Indicator & Status Badges
+    const p1Bar = document.getElementById('player1-bar');
+    const p2Bar = document.getElementById('player2-bar');
+    const p1Badge = document.getElementById('p1-status-badge');
+    const p2Badge = document.getElementById('p2-status-badge');
+
+    const isP1Turn = game.currentPlayer === PLAYERS.PLAYER1;
+    if (p1Bar) p1Bar.classList.toggle('active-turn', isP1Turn);
+    if (p2Bar) p2Bar.classList.toggle('active-turn', !isP1Turn);
+
+    if (p1Badge) {
+        if (isP1Turn) {
+            p1Badge.textContent = (game.aiThinking && game.aiPlayer === PLAYERS.PLAYER1) ? '🧠 Berpikir...' : '👉 Giliran Jalan';
+        } else {
+            p1Badge.textContent = 'Menunggu';
+        }
+    }
+
+    if (p2Badge) {
+        if (!isP1Turn) {
+            p2Badge.textContent = (game.aiThinking && game.aiPlayer === PLAYERS.PLAYER2) ? '🧠 Berpikir...' : '👉 Giliran Jalan';
+        } else {
+            p2Badge.textContent = 'Menunggu';
+        }
+    }
+
+    // Attach AI timer ke slot bar pemain AI yang bersangkutan
+    const timerEl = document.getElementById('ai-timer');
+    if (timerEl) {
+        const targetSlot = (game.aiPlayer === PLAYERS.PLAYER1) 
+            ? document.getElementById('p1-center-slot') 
+            : document.getElementById('p2-center-slot');
+        if (targetSlot && timerEl.parentElement !== targetSlot) {
+            targetSlot.appendChild(timerEl);
+        }
+    }
+
+    // Global turn pill di header
+    const turnPill = document.getElementById('global-turn-pill');
+    if (turnPill) {
+        let currentLabel = '';
+        if (game.aiEnabled) {
+            currentLabel = game.currentPlayer === game.humanPlayer ? 'Anda' : 'Komputer (AI)';
+        } else {
+            currentLabel = game.currentPlayer === PLAYERS.PLAYER1 ? 'Pemain 1' : 'Pemain 2';
+        }
+        const thinking = (game.aiThinking && game.currentPlayer === game.aiPlayer) ? ' 🧠' : '';
+        turnPill.textContent = `Giliran: ${currentLabel}${thinking}`;
+    }
+
+    // Support fallback for any old turn indicator element
+    const oldTurn = document.getElementById('turn-indicator');
+    if (oldTurn) {
+        let turnText = game.aiEnabled ? (game.currentPlayer === game.humanPlayer ? 'Anda' : 'Komputer') : (game.currentPlayer === PLAYERS.PLAYER1 ? 'Pemain 1' : 'Pemain 2');
+        oldTurn.textContent = `Giliran: ${turnText}`;
+    }
+
     const undoButton = document.getElementById('undo-btn');
     if (undoButton) {
         undoButton.disabled = game.history.length === 0 || game.aiThinking;
     }
 }
+window.updateUI = updateUI;
 
 /**
  * Show winner modal jika ada pemenang
