@@ -151,6 +151,7 @@ class Game {
         this.animationProgress = 0;
         this.aiEnabled = true; // Aktifkan AI untuk Lawan Komputer
         this.aiThinking = false;
+        this.aiDifficulty = 'medium'; // Tingkat kesulitan AI: 'easy', 'medium', 'hard'
         this.aiDepth = 3; // default minimax depth
         this._aiExpectedMs = 1200; // moving average estimate for AI runtime
         this._aiTimerInterval = null;
@@ -398,14 +399,39 @@ class Game {
     }
 
     /**
-     * Temukan langkah terbaik untuk pemain: prioritas capture (urutan terpanjang), jika tidak ada, pilih langkah normal acak
+     * Temukan langkah terbaik untuk AI berdasarkan tingkat kesulitan yang dipilih
      */
     findBestMoveForPlayer(player) {
-        // Use minimax with alpha-beta pruning to choose best move
-        const DEPTH = 3; // adjustable depth
-        const result = this.minimax(this.board, DEPTH, -Infinity, Infinity, true, player);
+        const moves = this.generateMovesForPlayer(this.board, player);
+        if (!moves || moves.length === 0) return null;
+
+        const difficulty = this.aiDifficulty || 'medium';
+
+        if (difficulty === 'easy') {
+            // Mudah: 60% acak, 40% depth 1
+            if (Math.random() < 0.6) {
+                const captures = moves.filter(m => m.type === 'capture');
+                if (captures.length > 0) {
+                    return captures[Math.floor(Math.random() * captures.length)];
+                }
+                return moves[Math.floor(Math.random() * moves.length)];
+            }
+            const result = this.minimax(this.board, 1, -Infinity, Infinity, true, player);
+            if (result && result.move) return result.move;
+            return moves[Math.floor(Math.random() * moves.length)];
+        }
+
+        if (difficulty === 'hard') {
+            // Sulit: kedalaman 5 dengan evaluasi taktis
+            const result = this.minimax(this.board, 5, -Infinity, Infinity, true, player);
+            if (result && result.move) return result.move;
+            return moves[0];
+        }
+
+        // Sedang: kedalaman 3 (standar)
+        const result = this.minimax(this.board, 3, -Infinity, Infinity, true, player);
         if (result && result.move) return result.move;
-        return null;
+        return moves[0];
     }
 
     // Generate all capture sequences starting from a piece (DFS)
@@ -479,21 +505,22 @@ class Game {
         return nb;
     }
 
-    // Evaluate board from perspective of AI (PLAYER2). Higher is better for AI.
-    evaluateBoard(boardState) {
+    // Evaluate board from perspective of AI (aiPlayer). Higher is better for AI.
+    evaluateBoard(boardState, aiPlayer = this.aiPlayer) {
+        const opponent = aiPlayer === PLAYERS.PLAYER1 ? PLAYERS.PLAYER2 : PLAYERS.PLAYER1;
         const scorePiece = 100;
         const scoreMobility = 3;
         const scoreCenter = 2;
 
-        const p1count = boardState.getPieceCount(PLAYERS.PLAYER1);
-        const p2count = boardState.getPieceCount(PLAYERS.PLAYER2);
+        const aiCount = boardState.getPieceCount(aiPlayer);
+        const oppCount = boardState.getPieceCount(opponent);
 
-        let score = (p2count - p1count) * scorePiece;
+        let score = (aiCount - oppCount) * scorePiece;
 
         // Mobility
-        const p1Moves = this.generateMovesForPlayer(boardState, PLAYERS.PLAYER1).length;
-        const p2Moves = this.generateMovesForPlayer(boardState, PLAYERS.PLAYER2).length;
-        score += (p2Moves - p1Moves) * scoreMobility;
+        const oppMoves = this.generateMovesForPlayer(boardState, opponent).length;
+        const aiMoves = this.generateMovesForPlayer(boardState, aiPlayer).length;
+        score += (aiMoves - oppMoves) * scoreMobility;
 
         // Center control
         const center = { row: Math.floor(BOARD_SIZE / 2), col: Math.floor(BOARD_SIZE / 2) };
@@ -501,7 +528,7 @@ class Game {
             if (p.captured) continue;
             const dist = Math.abs(p.row - center.row) + Math.abs(p.col - center.col);
             const centerVal = Math.max(0, (BOARD_SIZE - dist));
-            if (p.player === PLAYERS.PLAYER2) score += centerVal * scoreCenter;
+            if (p.player === aiPlayer) score += centerVal * scoreCenter;
             else score -= centerVal * scoreCenter;
         }
 
@@ -510,21 +537,27 @@ class Game {
 
     // Minimax with alpha-beta. Returns {score, move}
     minimax(boardState, depth, alpha, beta, maximizingPlayer, playerToMove) {
-        // Terminal or depth 0
         const winner = (() => {
             if (boardState.getPieceCount(PLAYERS.PLAYER1) === 0) return PLAYERS.PLAYER2;
             if (boardState.getPieceCount(PLAYERS.PLAYER2) === 0) return PLAYERS.PLAYER1;
             return null;
         })();
 
-        if (depth === 0 || winner) {
-            return { score: this.evaluateBoard(boardState), move: null };
+        if (winner) {
+            return {
+                score: winner === this.aiPlayer ? 10000 + depth : -10000 - depth,
+                move: null
+            };
+        }
+
+        if (depth === 0) {
+            return { score: this.evaluateBoard(boardState, this.aiPlayer), move: null };
         }
 
         const moves = this.generateMovesForPlayer(boardState, playerToMove);
         if (moves.length === 0) {
-            // No legal moves -> losing for playerToMove
-            const s = this.evaluateBoard(boardState) + (playerToMove === PLAYERS.PLAYER2 ? -500 : 500);
+            // No legal moves -> playerToMove loses
+            const s = playerToMove === this.aiPlayer ? -10000 : 10000;
             return { score: s, move: null };
         }
 
@@ -566,12 +599,18 @@ class Game {
         if (!this.aiEnabled || this.aiThinking || this.gameOver) return;
         this.aiThinking = true;
 
-        // Start AI timer UI with estimated duration based on depth and moving average
-        const estimated = Math.max(400, this._aiExpectedMs * (this.aiDepth / 3));
+        // Start AI timer UI based on difficulty
+        const diffTimes = {
+            easy: 350,
+            medium: 500,
+            hard: 750
+        };
+        const estimated = diffTimes[this.aiDifficulty] || 500;
         this.startAITimer(estimated);
 
         // Tambah delay kecil untuk terasa natural
         const delay = ms => new Promise(res => setTimeout(res, ms));
+        await delay(Math.min(estimated, 450));
 
         const player = this.currentPlayer;
 
@@ -1201,10 +1240,6 @@ window.addEventListener('DOMContentLoaded', () => {
     game = new Game();
     renderer = new CanvasRenderer(canvas, game);
 
-    // Initial render & UI
-    renderer.render();
-    updateUI();
-
     // Canvas click & pointer events
     canvas.addEventListener('pointerdown', handleCanvasClick);
     canvas.addEventListener('click', (e) => {
@@ -1214,15 +1249,29 @@ window.addEventListener('DOMContentLoaded', () => {
     // Game Mode Selection
     const modeSelect = document.getElementById('game-mode');
     const sideContainer = document.getElementById('side-select-container');
+    const diffContainer = document.getElementById('difficulty-select-container');
     if (modeSelect) {
         modeSelect.addEventListener('change', (e) => {
             game.aiEnabled = e.target.value === 'vs_ai';
             if (sideContainer) {
                 sideContainer.style.display = game.aiEnabled ? 'flex' : 'none';
             }
+            if (diffContainer) {
+                diffContainer.style.display = game.aiEnabled ? 'flex' : 'none';
+            }
             restartGame();
         });
         game.aiEnabled = modeSelect.value === 'vs_ai';
+    }
+
+    // AI Difficulty Selection
+    const diffSelect = document.getElementById('ai-difficulty');
+    if (diffSelect) {
+        diffSelect.addEventListener('change', (e) => {
+            game.aiDifficulty = e.target.value;
+            updateUI();
+        });
+        game.aiDifficulty = diffSelect.value || 'medium';
     }
 
     // Human Side Selection (Pemain 1 atau Pemain 2)
@@ -1234,6 +1283,11 @@ window.addEventListener('DOMContentLoaded', () => {
             game.aiPlayer = side === PLAYERS.PLAYER1 ? PLAYERS.PLAYER2 : PLAYERS.PLAYER1;
             restartGame();
         });
+        if (sideSelect.value) {
+            const side = parseInt(sideSelect.value, 10);
+            game.humanPlayer = side;
+            game.aiPlayer = side === PLAYERS.PLAYER1 ? PLAYERS.PLAYER2 : PLAYERS.PLAYER1;
+        }
     }
 
     // Color Theme Selection
@@ -1256,6 +1310,9 @@ window.addEventListener('DOMContentLoaded', () => {
             }
             updateUI();
         });
+        if (themeSelect.value && themeSelect.value !== 'classic') {
+            renderer.setTheme(themeSelect.value);
+        }
     }
 
     if (p1ColorInput && p2ColorInput) {
@@ -1284,6 +1341,10 @@ window.addEventListener('DOMContentLoaded', () => {
         const btn = document.getElementById('forced-toggle');
         btn.textContent = `Wajib Makan: ${game.forcedCapture ? 'ON' : 'OFF'}`;
     });
+
+    // Initial render & UI
+    renderer.render();
+    updateUI();
 
     // Start game loop safely inside DOMContentLoaded
     gameLoop();
@@ -1373,15 +1434,22 @@ function updateUI() {
 
     const theme = (renderer && renderer.theme) ? renderer.theme : THEMES.classic;
 
+    const diffMap = {
+        easy: 'Mudah',
+        medium: 'Sedang',
+        hard: 'Sulit'
+    };
+    const diffText = diffMap[game.aiDifficulty] || 'Sedang';
+
     let p1Label = 'Pemain 1';
     let p2Label = 'Pemain 2';
 
     if (game.aiEnabled) {
         if (game.humanPlayer === PLAYERS.PLAYER1) {
             p1Label = 'Pemain 1 (Anda)';
-            p2Label = 'Pemain 2 (Komputer)';
+            p2Label = `Pemain 2 (AI: ${diffText})`;
         } else {
-            p1Label = 'Pemain 1 (Komputer)';
+            p1Label = `Pemain 1 (AI: ${diffText})`;
             p2Label = 'Pemain 2 (Anda)';
         }
     } else {
