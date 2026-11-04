@@ -1,8 +1,5 @@
 {
-  "version": 2,
-  "public": true,
-  "buildCommand": "",
-  "framework": null,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
       "source": "/:path*",
@@ -10,3 +7,4 @@
     }
   ]
 }
+
