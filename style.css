@@ -177,6 +177,9 @@ body::before {
     display: block;
     max-width: 100%;
     cursor: pointer;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .game-controls {

@@ -606,7 +606,9 @@ class Game {
         this.aiThinking = false;
         // Stop AI timer UI (this will update expected duration estimate)
         this.stopAITimer();
+        if (renderer) renderer.render();
         if (window.updateUI) window.updateUI();
+        if (window.showWinnerIfExists) window.showWinnerIfExists();
     }
 
     startAITimer(durationMs) {
@@ -764,21 +766,34 @@ class Game {
     playSound(type) {
         if (!this.soundEnabled) return;
 
-        // Menggunakan Web Audio API untuk create sound
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        try {
+            if (!this.audioContext) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx) {
+                    this.audioContext = new AudioCtx();
+                }
+            }
+            if (!this.audioContext) return;
+            if (this.audioContext.state === 'suspended') {
+                this.audioContext.resume().catch(() => {});
+            }
 
-        if (type === 'move') {
-            // Nada rendah untuk gerakan normal
-            this.playTone(audioContext, 400, 0.1, 0.1);
-        } else if (type === 'capture') {
-            // Dua nada untuk capture
-            this.playTone(audioContext, 600, 0.1, 0.1);
-            setTimeout(() => {
-                this.playTone(audioContext, 800, 0.1, 0.1);
-            }, 100);
-        } else if (type === 'invalid') {
-            // Nada tinggi untuk langkah invalid
-            this.playTone(audioContext, 200, 0.1, 0.05);
+            if (type === 'move') {
+                // Nada rendah untuk gerakan normal
+                this.playTone(this.audioContext, 400, 0.1, 0.1);
+            } else if (type === 'capture') {
+                // Dua nada untuk capture
+                this.playTone(this.audioContext, 600, 0.1, 0.1);
+                setTimeout(() => {
+                    if (this.audioContext) this.playTone(this.audioContext, 800, 0.1, 0.1);
+                }, 100);
+            } else if (type === 'invalid') {
+                // Nada tinggi untuk langkah invalid
+                this.playTone(this.audioContext, 200, 0.1, 0.05);
+            }
+        } catch (e) {
+            // Audio error tidak boleh menghentikan game
+            console.warn('Audio play error:', e);
         }
     }
 
@@ -1058,10 +1073,12 @@ class CanvasRenderer {
     }
 
     /**
-     * Get grid position dari mouse event
+     * Get grid position dari mouse/pointer event
      */
     getGridPosition(event) {
         const rect = this.canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return { row: -1, col: -1, valid: false };
+
         const scaleX = CANVAS_SIZE / rect.width;
         const scaleY = CANVAS_SIZE / rect.height;
 
@@ -1072,23 +1089,11 @@ class CanvasRenderer {
         const col = Math.floor(x / CELL_SIZE);
         const row = Math.floor(y / CELL_SIZE);
 
-        // Adjust untuk offset (titik di tengah cell)
-        const cellX = x % CELL_SIZE;
-        const cellY = y % CELL_SIZE;
-
-        const tolerance = CELL_SIZE * 0.25;
-        const midX = CELL_SIZE / 2;
-        const midY = CELL_SIZE / 2;
-
-        // Check jika click di area titik
-        const distToCenter = Math.sqrt(Math.pow(cellX - midX, 2) + Math.pow(cellY - midY, 2));
-
-        if (distToCenter <= tolerance || 
-            (cellX > CELL_SIZE * 0.3 && cellX < CELL_SIZE * 0.7 && cellY > CELL_SIZE * 0.3 && cellY < CELL_SIZE * 0.7)) {
+        if (row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE) {
             return { row, col, valid: true };
         }
 
-        return { row, col, valid: false };
+        return { row: -1, col: -1, valid: false };
     }
 }
 
@@ -1103,11 +1108,28 @@ window.addEventListener('DOMContentLoaded', () => {
     game = new Game();
     renderer = new CanvasRenderer(canvas, game);
 
-    // Initial render
+    // Initial render & UI
     renderer.render();
+    updateUI();
 
-    // Canvas click event
-    canvas.addEventListener('click', handleCanvasClick);
+    // Canvas click & pointer events
+    canvas.addEventListener('pointerdown', handleCanvasClick);
+    canvas.addEventListener('click', (e) => {
+        if (!window.PointerEvent) handleCanvasClick(e);
+    });
+
+    // Game Mode Selection
+    const modeSelect = document.getElementById('game-mode');
+    if (modeSelect) {
+        modeSelect.addEventListener('change', (e) => {
+            game.aiEnabled = e.target.value === 'vs_ai';
+            if (game.aiEnabled && game.currentPlayer === PLAYERS.PLAYER2 && !game.gameOver) {
+                setTimeout(() => game.aiMove(), 250);
+            }
+            updateUI();
+        });
+        game.aiEnabled = modeSelect.value === 'vs_ai';
+    }
 
     // Button events
     document.getElementById('restart-btn').addEventListener('click', restartGame);
@@ -1118,19 +1140,27 @@ window.addEventListener('DOMContentLoaded', () => {
     // Undo button
     document.getElementById('undo-btn').addEventListener('click', () => {
         game.undoMove();
+        if (renderer) renderer.render();
+        updateUI();
     });
     document.getElementById('forced-toggle').addEventListener('click', () => {
         game.forcedCapture = !game.forcedCapture;
         const btn = document.getElementById('forced-toggle');
         btn.textContent = `Wajib Makan: ${game.forcedCapture ? 'ON' : 'OFF'}`;
     });
+
+    // Start game loop safely inside DOMContentLoaded
+    gameLoop();
 });
 
 /**
  * Handle click pada canvas
  */
 function handleCanvasClick(event) {
-    if (game.gameOver) return;
+    if (event.preventDefault && event.type === 'pointerdown') {
+        event.preventDefault();
+    }
+    if (!game || game.gameOver) return;
 
     // Jika AI sedang berpikir atau giliran AI, jangan terima input
     if (game.aiThinking || (game.aiEnabled && game.currentPlayer !== PLAYERS.PLAYER1)) return;
@@ -1148,6 +1178,7 @@ function handleCanvasClick(event) {
             game.validMoves = [];
             game.captureMoves = [];
             renderer.render();
+            updateUI();
             return;
         }
 
@@ -1175,6 +1206,7 @@ function handleCanvasClick(event) {
     }
 
     renderer.render();
+    updateUI();
 }
 
 /**
@@ -1242,10 +1274,10 @@ function showWinnerIfExists() {
  * Render loop
  */
 function gameLoop() {
-    renderer.render();
-    updateUI();
-    requestAnimationFrame(gameLoop);
+    if (renderer) {
+        renderer.render();
+    }
+    if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(gameLoop);
+    }
 }
-
-// Start game loop
-gameLoop();

@@ -32,6 +32,18 @@
             </div>
         </div>
 
+        <div class="game-settings" style="margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 12px 18px; border-radius: 10px; color: #fff; border: 2px solid rgba(255,255,255,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <label for="game-mode" style="font-weight: bold; margin-bottom: 4px; display: block; font-size: 0.9em; text-transform: uppercase;">Mode Permainan:</label>
+                    <select id="game-mode" style="padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); color: #fff; cursor: pointer; font-size: 0.95em;">
+                        <option value="vs_ai">👤 Lawan Komputer (AI)</option>
+                        <option value="vs_player">👥 Lawan Teman (2 Pemain)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
         <div class="canvas-container">
             <canvas id="gameCanvas"></canvas>
         </div>
