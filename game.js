@@ -139,6 +139,8 @@ class Game {
     constructor() {
         this.board = new Board();
         this.currentPlayer = PLAYERS.PLAYER1;
+        this.humanPlayer = PLAYERS.PLAYER1; // Default manusia = Pemain 1
+        this.aiPlayer = PLAYERS.PLAYER2;    // Default AI = Pemain 2
         this.selectedPiece = null;
         this.validMoves = [];
         this.captureMoves = [];
@@ -147,7 +149,7 @@ class Game {
         this.soundEnabled = true;
         this.animatingPiece = null;
         this.animationProgress = 0;
-        this.aiEnabled = true; // Aktifkan AI untuk Pemain 2
+        this.aiEnabled = true; // Aktifkan AI untuk Lawan Komputer
         this.aiThinking = false;
         this.aiDepth = 3; // default minimax depth
         this._aiExpectedMs = 1200; // moving average estimate for AI runtime
@@ -312,7 +314,11 @@ class Game {
 
     undoMove() {
         if (this.history.length === 0 || this.aiThinking) return;
-        const snapshot = this.history.pop();
+        let snapshot = this.history.pop();
+        // Jika vs AI dan setelah pop masih giliran AI, pop 1 langkah lagi agar kembali ke giliran manusia
+        if (this.aiEnabled && snapshot.currentPlayer === this.aiPlayer && this.history.length > 0) {
+            snapshot = this.history.pop();
+        }
         this.board = snapshot.board;
         this.currentPlayer = snapshot.currentPlayer;
         this.selectedPiece = snapshot.selectedPiece;
@@ -703,7 +709,7 @@ class Game {
             this.winner = winner;
         }
         // Jika giliran AI dan AI aktif, jalankan AI setelah delay singkat
-        if (!this.gameOver && this.aiEnabled && this.currentPlayer === PLAYERS.PLAYER2) {
+        if (!this.gameOver && this.aiEnabled && this.currentPlayer === this.aiPlayer) {
             setTimeout(() => this.aiMove(), 250);
         }
     }
@@ -758,6 +764,11 @@ class Game {
         this.gameOver = false;
         this.winner = null;
         this.history = [];
+
+        // Jika AI jalan duluan (AI adalah Pemain 1)
+        if (this.aiEnabled && this.currentPlayer === this.aiPlayer) {
+            setTimeout(() => this.aiMove(), 350);
+        }
     }
 
     /**
@@ -819,6 +830,62 @@ class Game {
 }
 
 // ============================================
+// TEMA WARNA BIDAK
+// ============================================
+const THEMES = {
+    classic: {
+        name: 'Klasik',
+        p1: '#d3d3d3',
+        p1Shadow: '#808080',
+        p2: '#a52a2a',
+        p2Shadow: '#701515'
+    },
+    monochrome: {
+        name: 'Hitam & Putih',
+        p1: '#f8f9fa',
+        p1Shadow: '#adb5bd',
+        p2: '#212529',
+        p2Shadow: '#000000'
+    },
+    red_blue: {
+        name: 'Biru & Merah',
+        p1: '#3b82f6',
+        p1Shadow: '#1d4ed8',
+        p2: '#ef4444',
+        p2Shadow: '#b91c1c'
+    },
+    gold_emerald: {
+        name: 'Emas & Zamrud',
+        p1: '#f59e0b',
+        p1Shadow: '#b45309',
+        p2: '#10b981',
+        p2Shadow: '#047857'
+    },
+    neon: {
+        name: 'Neon Cyberpunk',
+        p1: '#06b6d4',
+        p1Shadow: '#0891b2',
+        p2: '#ec4899',
+        p2Shadow: '#be185d'
+    }
+};
+
+function shadeColor(color, percent) {
+    try {
+        let hex = color.replace('#', '');
+        if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+        let num = parseInt(hex, 16);
+        let amt = Math.round(2.55 * percent);
+        let R = (num >> 16) + amt;
+        let G = (num >> 8 & 0x00FF) + amt;
+        let B = (num & 0x0000FF) + amt;
+        return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 + (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 + (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+    } catch (e) {
+        return color;
+    }
+}
+
+// ============================================
 // CLASS CANVAS RENDERER
 // ============================================
 class CanvasRenderer {
@@ -826,6 +893,7 @@ class CanvasRenderer {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.game = game;
+        this.theme = { ...THEMES.classic };
 
         // Set canvas size
         this.canvas.width = CANVAS_SIZE;
@@ -834,6 +902,30 @@ class CanvasRenderer {
         // Responsive canvas
         this.updateCanvasSize();
         window.addEventListener('resize', () => this.updateCanvasSize());
+    }
+
+    /**
+     * Ganti tema warna
+     */
+    setTheme(themeKey) {
+        if (THEMES[themeKey]) {
+            this.theme = { ...THEMES[themeKey] };
+            this.render();
+        }
+    }
+
+    /**
+     * Set tema kustom dari color picker
+     */
+    setCustomTheme(p1Color, p2Color) {
+        this.theme = {
+            name: 'Kustom',
+            p1: p1Color,
+            p1Shadow: shadeColor(p1Color, -25),
+            p2: p2Color,
+            p2Shadow: shadeColor(p2Color, -25)
+        };
+        this.render();
     }
 
     /**
@@ -1041,12 +1133,13 @@ class CanvasRenderer {
         this.ctx.fill();
 
         // Main piece color
+        const theme = this.theme || THEMES.classic;
         if (piece.player === PLAYERS.PLAYER1) {
-            this.ctx.fillStyle = COLORS.PIECE_P1;
-            this.ctx.shadowColor = COLORS.PIECE_P1_SHADOW;
+            this.ctx.fillStyle = theme.p1;
+            this.ctx.shadowColor = theme.p1Shadow;
         } else {
-            this.ctx.fillStyle = COLORS.PIECE_P2;
-            this.ctx.shadowColor = COLORS.PIECE_P2_SHADOW;
+            this.ctx.fillStyle = theme.p2;
+            this.ctx.shadowColor = theme.p2Shadow;
         }
 
         this.ctx.shadowBlur = 8;
@@ -1120,15 +1213,58 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Game Mode Selection
     const modeSelect = document.getElementById('game-mode');
+    const sideContainer = document.getElementById('side-select-container');
     if (modeSelect) {
         modeSelect.addEventListener('change', (e) => {
             game.aiEnabled = e.target.value === 'vs_ai';
-            if (game.aiEnabled && game.currentPlayer === PLAYERS.PLAYER2 && !game.gameOver) {
-                setTimeout(() => game.aiMove(), 250);
+            if (sideContainer) {
+                sideContainer.style.display = game.aiEnabled ? 'flex' : 'none';
+            }
+            restartGame();
+        });
+        game.aiEnabled = modeSelect.value === 'vs_ai';
+    }
+
+    // Human Side Selection (Pemain 1 atau Pemain 2)
+    const sideSelect = document.getElementById('human-side');
+    if (sideSelect) {
+        sideSelect.addEventListener('change', (e) => {
+            const side = parseInt(e.target.value, 10);
+            game.humanPlayer = side;
+            game.aiPlayer = side === PLAYERS.PLAYER1 ? PLAYERS.PLAYER2 : PLAYERS.PLAYER1;
+            restartGame();
+        });
+    }
+
+    // Color Theme Selection
+    const themeSelect = document.getElementById('color-theme');
+    const customColorsContainer = document.getElementById('custom-colors-container');
+    const p1ColorInput = document.getElementById('p1-color-picker');
+    const p2ColorInput = document.getElementById('p2-color-picker');
+
+    if (themeSelect) {
+        themeSelect.addEventListener('change', (e) => {
+            const themeKey = e.target.value;
+            if (themeKey === 'custom') {
+                if (customColorsContainer) customColorsContainer.style.display = 'flex';
+                if (p1ColorInput && p2ColorInput) {
+                    renderer.setCustomTheme(p1ColorInput.value, p2ColorInput.value);
+                }
+            } else {
+                if (customColorsContainer) customColorsContainer.style.display = 'none';
+                renderer.setTheme(themeKey);
             }
             updateUI();
         });
-        game.aiEnabled = modeSelect.value === 'vs_ai';
+    }
+
+    if (p1ColorInput && p2ColorInput) {
+        const updateCustom = () => {
+            renderer.setCustomTheme(p1ColorInput.value, p2ColorInput.value);
+            updateUI();
+        };
+        p1ColorInput.addEventListener('input', updateCustom);
+        p2ColorInput.addEventListener('input', updateCustom);
     }
 
     // Button events
@@ -1163,7 +1299,7 @@ function handleCanvasClick(event) {
     if (!game || game.gameOver) return;
 
     // Jika AI sedang berpikir atau giliran AI, jangan terima input
-    if (game.aiThinking || (game.aiEnabled && game.currentPlayer !== PLAYERS.PLAYER1)) return;
+    if (game.aiThinking || (game.aiEnabled && game.currentPlayer === game.aiPlayer)) return;
 
     const pos = renderer.getGridPosition(event);
     if (!pos.valid) return;
@@ -1233,16 +1369,56 @@ function toggleSound() {
  * Update UI (turn indicator, piece count)
  */
 function updateUI() {
-    const turnText = game.currentPlayer === PLAYERS.PLAYER1 ? 'Pemain 1' : (game.aiEnabled ? 'Pemain 2 (Komputer)' : 'Pemain 2');
-    const thinking = game.aiThinking && game.currentPlayer === PLAYERS.PLAYER2 ? ' — berpikir...' : '';
-    document.getElementById('turn-indicator').textContent = `Giliran: ${turnText}${thinking}`;
-    
-    document.getElementById('player1-pieces').textContent = 
-        game.board.getPieceCount(PLAYERS.PLAYER1);
-    
-    document.getElementById('player2-pieces').textContent = 
-        game.board.getPieceCount(PLAYERS.PLAYER2);
-    
+    if (!game) return;
+
+    const theme = (renderer && renderer.theme) ? renderer.theme : THEMES.classic;
+
+    let p1Label = 'Pemain 1';
+    let p2Label = 'Pemain 2';
+
+    if (game.aiEnabled) {
+        if (game.humanPlayer === PLAYERS.PLAYER1) {
+            p1Label = 'Pemain 1 (Anda)';
+            p2Label = 'Pemain 2 (Komputer)';
+        } else {
+            p1Label = 'Pemain 1 (Komputer)';
+            p2Label = 'Pemain 2 (Anda)';
+        }
+    } else {
+        p1Label = 'Pemain 1';
+        p2Label = 'Pemain 2';
+    }
+
+    const p1El = document.querySelector('.player-1 .player-label');
+    const p2El = document.querySelector('.player-2 .player-label');
+    if (p1El) p1El.textContent = p1Label;
+    if (p2El) p2El.textContent = p2Label;
+
+    // Highlight border box pemain sesuai warna tema
+    const p1Box = document.querySelector('.player.player-1');
+    const p2Box = document.querySelector('.player.player-2');
+    if (p1Box && theme.p1) p1Box.style.borderColor = theme.p1;
+    if (p2Box && theme.p2) p2Box.style.borderColor = theme.p2;
+
+    let turnText = '';
+    if (game.aiEnabled) {
+        turnText = game.currentPlayer === game.humanPlayer ? 'Anda' : 'Komputer';
+    } else {
+        turnText = game.currentPlayer === PLAYERS.PLAYER1 ? 'Pemain 1' : 'Pemain 2';
+    }
+
+    const thinking = game.aiThinking && game.currentPlayer === game.aiPlayer ? ' — berpikir...' : '';
+    const turnIndicator = document.getElementById('turn-indicator');
+    if (turnIndicator) {
+        turnIndicator.textContent = `Giliran: ${turnText}${thinking}`;
+    }
+
+    const p1Pieces = document.getElementById('player1-pieces');
+    if (p1Pieces && game.board) p1Pieces.textContent = game.board.getPieceCount(PLAYERS.PLAYER1);
+
+    const p2Pieces = document.getElementById('player2-pieces');
+    if (p2Pieces && game.board) p2Pieces.textContent = game.board.getPieceCount(PLAYERS.PLAYER2);
+
     const undoButton = document.getElementById('undo-btn');
     if (undoButton) {
         undoButton.disabled = game.history.length === 0 || game.aiThinking;
@@ -1260,10 +1436,20 @@ function showWinnerIfExists() {
         const winnerText = document.getElementById('winner-text');
         const winnerMessage = document.getElementById('winner-message');
 
-        winnerText.textContent = `Pemain ${winner === PLAYERS.PLAYER1 ? '1' : '2'} Menang! 🎉`;
-        winnerMessage.textContent = winner === PLAYERS.PLAYER1 
-            ? 'Pemain 1 (Abu-abu) telah memenangkan permainan. Selamat!'
-            : 'Pemain 2 (Coklat) telah memenangkan permainan. Selamat!';
+        if (game.aiEnabled) {
+            if (winner === game.humanPlayer) {
+                winnerText.textContent = '🎉 Anda Menang!';
+                winnerMessage.textContent = 'Hebat! Anda berhasil memenangkan permainan.';
+            } else {
+                winnerText.textContent = '🤖 Komputer Menang!';
+                winnerMessage.textContent = 'Komputer berhasil memenangkan permainan. Ayo coba lagi!';
+            }
+        } else {
+            winnerText.textContent = `Pemain ${winner === PLAYERS.PLAYER1 ? '1' : '2'} Menang! 🎉`;
+            winnerMessage.textContent = winner === PLAYERS.PLAYER1 
+                ? 'Pemain 1 telah memenangkan permainan. Selamat!'
+                : 'Pemain 2 telah memenangkan permainan. Selamat!';
+        }
 
         modal.classList.remove('hidden');
         game.playSound('capture');
