@@ -1,0 +1,22 @@
+{
+  "name": "game-daman",
+  "version": "1.0.0",
+  "description": "Game Daman - Permainan Tradisional Indonesia",
+  "main": "index.html",
+  "scripts": {
+    "sync": "npx cap sync android",
+    "open": "npx cap open android",
+    "build": "npx cap sync android && npx cap open android"
+  },
+  "keywords": ["daman", "game", "tradisional", "indonesia"],
+  "author": "Evo Corp <bik.app.kediri@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.0",
+    "@capacitor/cli": "^6.0.0"
+  }
+}

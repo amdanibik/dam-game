@@ -1,0 +1,8 @@
+resources/icon-source.jpg
+icons/
+node_modules/
+android/
+ios/
+dist/
+*.jks
+*.keystore
