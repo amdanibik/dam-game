@@ -1,186 +1,140 @@
-# Panduan Build AAB — Game Daman untuk Windows
+# 📱 Panduan Build APK & AAB Game Daman (Google Play Store)
 
-Panduan ini dijalankan di **PC Windows Anda** (bukan di WSL), kecuali disebutkan khusus.
-
-## A. Persiapan Awal (Lakukan Sekali)
-
-### 1. Install Java JDK 17
-- Download dari: https://adoptium.net/temurin/releases/?version=17
-- Pilih: Windows x64 → JDK → .msi
-- Install, lalu verifikasi: buka Command Prompt → `java -version`
-
-### 2. Install Android Studio
-- Download dari: https://developer.android.com/studio
-- Install dengan semua komponen default (Android SDK, AVD, Build Tools)
-- Saat pertama kali buka, ikuti wizard setup → pilih "Standard"
-- Tunggu Android Studio mendownload SDK (bisa 1-2GB)
-
-### 3. Set Environment Variable ANDROID_HOME
-Buka System Environment Variables → tambahkan:
-  - Variable: ANDROID_HOME
-  - Value: C:\Users\[USERNAME]\AppData\Local\Android\Sdk
-
-Tambahkan juga ke PATH:
-  - %ANDROID_HOME%\platform-tools
-  - %ANDROID_HOME%\cmdline-tools\latest\bin
+> **Status Saat Ini:** Proyek native Android (`id.bik.daman`) sudah selesai di-generate dan disinkronkan di folder `android/`.
 
 ---
 
-## B. Install Capacitor & Generate Project Android
+## 🛠️ Langkah 1: Install Alat di Windows (Sekali Saja)
 
-Buka **Command Prompt atau PowerShell Windows** (bukan WSL), lalu:
+Karena Anda menggunakan Windows + WSL, proses kompilasi native Android Studio dijalankan langsung dari sisi Windows (memerlukan GUI desktop).
 
-### Opsi 1: Jalankan dari Windows (Paling Stabil)
-```
-# Copy dulu folder game ke Windows filesystem agar lebih mudah
-xcopy \\wsl$\Ubuntu\home\danibik\bik-app\game C:\Projects\daman-game /E /I
+1. **Install Java JDK 17:**
+   - Unduh installer Windows: [Adoptium Eclipse Temurin JDK 17 (x64 .msi)](https://adoptium.net/temurin/releases/?version=17)
+   - Jalankan installer hingga selesai.
 
-# Masuk ke folder
-cd C:\Projects\daman-game
-
-# Install Capacitor
-npm install
-
-# Tambah platform Android
-npx cap add android
-
-# Sync file web ke Android
-npx cap sync android
-
-# Buka di Android Studio
-npx cap open android
-```
-
-### Opsi 2: Langsung dari WSL (Jika Node & npm sudah ada di WSL)
-Buka terminal WSL, lalu:
-```bash
-cd /home/danibik/bik-app/game
-npm install
-npx cap add android
-npx cap sync android
-
-# Buka Android Studio dari Windows dengan path WSL:
-# Di Android Studio: File → Open → \\wsl$\Ubuntu\home\danibik\bik-app\game\android
-```
+2. **Install Android Studio:**
+   - Unduh: [Android Studio Resmi](https://developer.android.com/studio)
+   - Install dengan opsi default (termasuk Android SDK & Platform Tools).
+   - Buka Android Studio pertama kali untuk membiarkannya menyelesaikan download SDK.
 
 ---
 
-## C. Konfigurasi di Android Studio
+## 📂 Langkah 2: Buka Proyek di Android Studio
 
-Setelah Android Studio terbuka dengan project android/:
-
-### 1. Edit file: android/app/build.gradle
-Pastikan nilainya seperti ini:
-```
-android {
-    compileSdk = 35
-    defaultConfig {
-        applicationId "id.bik.daman"
-        minSdk = 26
-        targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
-    }
-}
-```
-
-### 2. Install Icon (setelah icon tersedia)
-- Taruh file `icon-512.png` di folder: `resources/`
-- Jalankan di terminal: `npx capacitor-assets generate --android`
-- Atau manual: klik kanan `res` → Image Asset di Android Studio
-
-### 3. Kunci Orientasi Portrait
-Edit `android/app/src/main/AndroidManifest.xml`:
-Tambahkan di dalam tag `<activity`:
-```
-android:screenOrientation="portrait"
-```
+1. Buka **Android Studio** di Windows.
+2. Pilih **Open** (atau *File → Open*).
+3. Masukkan path proyek Android Anda di WSL:
+   ```text
+   \\wsl$\Ubuntu\home\danibik\bik-app\game\android
+   ```
+   *(Atau browse via Network → wsl$ → Ubuntu → home → danibik → bik-app → game → android)*.
+4. Biarkan Android Studio melakukan **Gradle Sync** untuk pertama kali (pastikan PC terhubung ke internet).
 
 ---
 
-## D. Build APK (untuk Testing di HP Anda)
+## 🎨 Langkah 3: Pasang Ikon Aplikasi (App Icon)
 
-Di Android Studio:
-1. Menu: Build → Build Bundle(s) / APK(s) → Build APK(s)
-2. Tunggu proses build selesai
-3. Klik "locate" di notifikasi untuk menemukan file .apk
-4. Transfer ke HP Android → Install (aktifkan "Sumber Tidak Dikenal" di pengaturan HP)
-5. Uji semua fitur game
+Ikon game bernuansa tradisional yang sudah di-generate tersimpan di:
+`\\wsl$\Ubuntu\home\danibik\bik-app\game\resources\icon-source.jpg`
+
+Cara termudah memasangnya di Android Studio:
+1. Di panel kiri Android Studio, klik kanan folder **`app/res`** (atau di struktur Android: `app → res`).
+2. Pilih **New → Image Asset**.
+3. Di tab **Foreground Layer**:
+   - Source Asset: pilih **Path**
+   - Klik ikon folder, pilih file `icon-source.jpg` yang ada di folder `resources/`.
+   - Geser slider **Resize** agar pas di dalam lingkaran/persegi preview.
+4. Di tab **Background Layer**:
+   - Pilih Color: `#8B7355` (warna cokelat tema daman).
+5. Klik **Next → Finish**. Android Studio akan otomatis membuat semua ukuran ikon untuk semua tipe HP Android!
 
 ---
 
-## E. Buat Keystore (Sekali Saja — SIMPAN BAIK-BAIK!)
+## 🚀 Langkah 4: Build APK (Untuk Langsung Ditest di HP)
 
-Buka Command Prompt di Windows:
+1. Di menu atas Android Studio: **Build → Build Bundle(s) / APK(s) → Build APK(s)**.
+2. Tunggu proses build selesai (~1-2 menit).
+3. Muncul notifikasi di pojok kanan bawah: *APK(s) generated successfully* → klik **locate**.
+4. Salin file `app-debug.apk` ke HP Android Anda (bisa via USB, WhatsApp, atau Google Drive) dan instal untuk mencoba bermain langsung di HP!
+
+---
+
+## 🔐 Langkah 5: Buat Keystore (Untuk Upload Play Store — Sekali Seumur Hidup)
+
+Google Play mewajibkan file AAB ditandatangani dengan sertifikat digital (*Keystore*).
+
+Buka **Command Prompt (CMD)** di Windows, lalu jalankan:
+
+```cmd
+keytool -genkey -v -keystore C:\Users\%USERNAME%\daman-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias daman-key
 ```
-keytool -genkey -v ^
-  -keystore C:\Projects\daman-release.jks ^
-  -keyalg RSA -keysize 2048 ^
-  -validity 10000 ^
-  -alias daman-key
-```
 
-Isi form yang muncul:
-- Password keystore: [buat password kuat]
-- First and Last Name: Muhammad Amdanibik
-- Organization: Evo Corp
-- City: Kediri
-- State: Jawa Timur
-- Country: ID
+Masukkan data:
+- **Keystore password:** Buat password yang aman (misal: catat di catatan penting Anda).
+- **Nama lengkap:** Muhammad Amdanibik
+- **Organisasi:** Evo Corp
+- **Kota:** Kediri
+- **Provinsi:** Jawa Timur
+- **Kode Negara:** ID
 
-SIMPAN INFORMASI INI DI TEMPAT AMAN:
-  - File: C:\Projects\daman-release.jks
-  - Alias: daman-key
-  - Password keystore: [yang Anda buat]
-  - Password key: [yang Anda buat]
+> [!CAUTION]
+> **SIMPAN BAIK-BAIK:**
+> - File: `C:\Users\[Username Anda]\daman-release.jks`
+> - Alias: `daman-key`
+> - Password yang Anda buat
+> 
+> Jika file atau password ini hilang, Anda tidak akan bisa mengunggah pembaruan (*update*) ke aplikasi yang sama di Play Store!
 
 ---
 
-## F. Build AAB Release (untuk Upload ke Play Store)
+## 📦 Langkah 6: Build File AAB (*Android App Bundle*)
 
-Di Android Studio:
-1. Menu: Build → Generate Signed Bundle / APK
-2. Pilih: Android App Bundle (.aab)
-3. Klik Next
-4. Key store path: pilih file daman-release.jks
-5. Isi password keystore dan key
-6. Key alias: daman-key
-7. Klik Next
-8. Pilih: release
-9. Klik Finish
-
-File AAB tersimpan di:
-`android/app/build/outputs/bundle/release/app-release.aab`
-
----
-
-## G. Upload ke Google Play Console
-
-1. Buka: https://play.google.com/console
-2. Klik "Create App" → Game Daman
-3. Isi informasi aplikasi:
-   - Nama: Game Daman
-   - Bahasa default: Bahasa Indonesia
-   - Jenis: Game
-   - Gratis/berbayar: Gratis
-4. Navigasi ke: Testing → Internal testing → Create new release
-5. Upload file: app-release.aab
-6. Undang minimal 12 tester (teman/keluarga via email Google mereka)
-7. Tunggu 14 hari
-8. Ajukan Production release
+1. Di Android Studio, klik menu: **Build → Generate Signed Bundle / APK**.
+2. Pilih **Android App Bundle (.aab)** → klik **Next**.
+3. Isi informasi penandatanganan:
+   - **Key store path:** Klik *Choose existing...* dan pilih file `daman-release.jks` yang Anda buat di Langkah 5.
+   - **Key store password:** Masukkan password keystore Anda.
+   - **Key alias:** `daman-key`
+   - **Key password:** Masukkan password key Anda.
+4. Klik **Next**.
+5. Pilih Destination Folder dan Build Variant: **release**.
+6. Klik **Create / Finish**.
+7. Setelah selesai, klik **locate** pada notifikasi. File Anda adalah:
+   ```text
+   app-release.aab
+   ```
+   File inilah yang akan diunggah ke Google Play Console!
 
 ---
 
-## H. Perintah Update (Setiap Ada Perubahan Kode)
+## 🌐 Langkah 7: Unggah ke Google Play Console
 
-```bash
-# Di WSL / terminal game folder:
-npx cap sync android
+1. Buka [Google Play Console](https://play.google.com/console).
+2. Di dashboard, klik tombol **Create App (Buat Aplikasi)**:
+   - **App name:** Game Daman
+   - **Default language:** Indonesian (id)
+   - **App or game:** Game
+   - **Free or paid:** Free (Gratis)
+   - Centang persetujuan kebijakan, klik **Create app**.
+3. Buka menu **Testing → Internal testing** (atau **Closed testing**):
+   - Klik **Create new release**.
+   - Upload file `app-release.aab` yang telah di-generate.
+   - Masukkan Release notes: `Rilis perdana Game Daman tradisional Indonesia`.
+   - Klik **Next → Save → Start rollout to Internal testing**.
+4. Tambahkan email tester (teman/keluarga) untuk masa pengujian 14 hari yang diwajibkan Google.
+5. Setelah periode selesai, klik **Promote release → Production** untuk merilisnya ke publik di seluruh dunia!
 
-# Naikkan versionCode di android/app/build.gradle
-# versionCode = 2 (naik 1 setiap update)
-# versionName = "1.1.0"
+---
 
-# Build AAB baru di Android Studio
-# Upload ke Play Console
-```
+## 🔄 Cara Update Kode Game di Masa Depan
+
+Jika nanti Anda mengubah aturan game, tampilan, atau warna di file HTML/CSS/JS:
+
+1. Di terminal WSL folder game, cukup jalankan:
+   ```bash
+   npm run sync
+   ```
+2. Buka `android/app/build.gradle`:
+   - Naikkan `versionCode` (misal dari `1` ke `2`).
+   - Ubah `versionName` (misal dari `"1.0"` ke `"1.1"`).
+3. Di Android Studio: **Build → Generate Signed Bundle / APK** → pilih AAB release → Upload file `.aab` baru ke Google Play Console!
