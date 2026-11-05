@@ -27,9 +27,6 @@ jobs:
         java-version: '17'
         cache: 'gradle'
 
-    - name: 🤖 Setup Android SDK
-      uses: android-actions/setup-android@v3
-
     - name: 📦 Install Node Dependencies
       run: npm install
 
@@ -38,7 +35,7 @@ jobs:
         npm run build
         npx cap sync android
 
-    - name: 🔑 Generate Release Keystore (for signing)
+    - name: 🔑 Generate Release Keystore
       run: |
         cd android/app
         keytool -genkeypair -v \
@@ -51,36 +48,13 @@ jobs:
           -keypass daman123 \
           -dname "CN=Muhammad Amdanibik, OU=Game, O=Evo Corp, L=Kediri, ST=East Java, C=ID"
 
-    - name: ⚙️ Configure Gradle Release Signing
-      run: |
-        # Injeksi konfigurasi signing release ke android/app/build.gradle
-        python3 -c "
-        path = 'android/app/build.gradle'
-        with open(path, 'r') as f:
-            content = f.read()
-        signing_block = '''
-        signingConfigs {
-            release {
-                storeFile file('daman-release.jks')
-                storePassword 'daman123'
-                keyAlias 'daman-key'
-                keyPassword 'daman123'
-            }
-        }
-        '''
-        content = content.replace('android {', 'android {\n' + signing_block, 1)
-        content = content.replace('buildTypes {\n        release {', 'buildTypes {\n        release {\n            signingConfig signingConfigs.release', 1)
-        with open(path, 'w') as f:
-            f.write(content)
-        "
-
     - name: 🛠️ Make Gradle wrapper executable
       run: chmod +x android/gradlew
 
-    - name: 🔨 Build Debug & Release APK
+    - name: 🔨 Build Debug APK
       run: |
         cd android
-        ./gradlew assembleDebug assembleRelease
+        ./gradlew assembleDebug
 
     - name: 📦 Build Release AAB (Google Play Bundle)
       run: |
@@ -98,4 +72,3 @@ jobs:
       with:
         name: Game-Daman-AAB
         path: android/app/build/outputs/bundle/release/*.aab
-
